@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basketball Stats Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/react/umd/react.development.js" crossorigin></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://cdn.jsdelivr.net/npm/babel-standalone/babel.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div id="root" class="p-6"></div>
+
+    <script type="text/babel">
+        const BasketballStatsTracker = () => {
+            const [gameTime, setGameTime] = React.useState({ minutes: 0, seconds: 0 });
+            const [quarter, setQuarter] = React.useState(1);
+            const [players, setPlayers] = React.useState([]);
+            const [onCourt, setOnCourt] = React.useState([]);
+            const [gameStarted, setGameStarted] = React.useState(false);
+            const [statistics, setStatistics] = React.useState({});
+
+            React.useEffect(() => {
+                let timer;
+                if (gameStarted) {
+                    timer = setInterval(() => {
+                        setGameTime((prevTime) => {
+                            let { minutes, seconds } = prevTime;
+                            seconds++;
+                            if (seconds === 60) {
+                                seconds = 0;
+                                minutes++;
+                            }
+                            return { minutes, seconds };
+                        });
+                    }, 1000);
+                } else {
+                    clearInterval(timer);
+                }
+                return () => clearInterval(timer);
+            }, [gameStarted]);
+
+            const handleAddPlayer = (name, jerseyNumber) => {
+                if (players.length < 10) {
+                    setPlayers([...players, { name, jerseyNumber, id: players.length + 1 }]);
+                }
+            };
+
+            const handleRemovePlayer = (id) => {
+                setPlayers(players.filter(player => player.id !== id));
+                setOnCourt(onCourt.filter(playerId => playerId !== id));
+            };
+
+            const togglePlayerOnCourt = (id) => {
+                if (onCourt.includes(id)) {
+                    setOnCourt(onCourt.filter(playerId => playerId !== id));
+                } else if (onCourt.length < 5) {
+                    setOnCourt([...onCourt, id]);
+                }
+            };
+
+            const handleTimeChange = (action) => {
+                switch (action) {
+                    case 'start':
+                        setGameStarted(true);
+                        break;
+                    case 'pause':
+                        setGameStarted(false);
+                        break;
+                    case 'reset':
+                        setGameStarted(false);
+                        setGameTime({ minutes: 0, seconds: 0 });
+                        break;
+                    default:
+                        break;
+                }
+            };
+
+            const handleStatUpdate = (playerId, statType) => {
+                setStatistics((prevStats) => {
+                    const playerStats = prevStats[playerId] || { shots: { 2: { attempts: 0, makes: 0 }, 3: { attempts: 0, makes: 0 }, ft: { attempts: 0, makes: 0 } }, fouls: 0 };
+                    switch (statType) {
+                        case '2p_attempt':
+                            playerStats.shots[2].attempts++;
+                            break;
+                        case '2p_make':
+                            playerStats.shots[2].makes++;
+                            break;
+                        case '3p_attempt':
+                            playerStats.shots[3].attempts++;
+                            break;
+                        case '3p_make':
+                            playerStats.shots[3].makes++;
+                            break;
+                        case 'ft_attempt':
+                            playerStats.shots.ft.attempts++;
+                            break;
+                        case 'ft_make':
+                            playerStats.shots.ft.makes++;
+                            break;
+                        case 'foul':
+                            playerStats.fouls++;
+                            break;
+                        default:
+                            break;
+                    }
+                    return { ...prevStats, [playerId]: playerStats };
+                });
+            };
+
+            return (
+                <div className="p-6 bg-gray-100 min-h-screen">
+                    <h1 className="text-3xl font-bold text-center mb-4">Basketball Stats Tracker</h1>
+
+                    <div className="flex justify-between mb-6">
+                        <div>
+                            <p className="text-xl">Game Clock: {gameTime.minutes.toString().padStart(2, '0')}:{gameTime.seconds.toString().padStart(2, '0')}</p>
+                            <button className="btn-primary" onClick={() => handleTimeChange('start')}>Start</button>
+                            <button className="btn-primary" onClick={() => handleTimeChange('pause')}>Pause</button>
+                            <button className="btn-secondary" onClick={() => handleTimeChange('reset')}>Reset</button>
+                        </div>
+                        <div>
+                            <p className="text-xl">Quarter: {quarter}</p>
+                            <button className="btn-primary" onClick={() => setQuarter((q) => Math.min(q + 1, 4))}>Next Quarter</button>
+                            <button className="btn-secondary" onClick={() => setQuarter((q) => Math.max(q - 1, 1))}>Previous Quarter</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h2 className="text-2xl font-semibold">Player Management</h2>
+                        <button onClick={() => {
+                            const name = prompt('Enter player name');
+                            const jerseyNumber = prompt('Enter jersey number');
+                            if (name && jerseyNumber) handleAddPlayer(name, jerseyNumber);
+                        }} className="btn-primary">Add Player</button>
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                            {players.map(player => (
+                                <div key={player.id} className="p-4 bg-white rounded shadow">
+                                    <p>{player.name} (# {player.jerseyNumber})</p>
+                                    <button className="btn-primary" onClick={() => togglePlayerOnCourt(player.id)}>{onCourt.includes(player.id) ? 'Bench' : 'On Court'}</button>
+                                    <button className="btn-danger" onClick={() => handleRemovePlayer(player.id)}>Remove</button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="mt-6">
+                        <h2 className="text-2xl font-semibold">Statistics</h2>
+                        <div className="overflow-x-auto">
+                            <table className="table-auto w-full bg-white shadow rounded">
+                                <thead>
+                                    <tr>
+                                        <th>Player</th>
+                                        <th>2P (M/A)</th>
+                                        <th>3P (M/A)</th>
+                                        <th>FT (M/A)</th>
+                                        <th>Fouls</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {players.map(player => {
+                                        const stats = statistics[player.id] || { shots: { 2: { attempts: 0, makes: 0 }, 3: { attempts: 0, makes: 0 }, ft: { attempts: 0, makes: 0 } }, fouls: 0 };
+                                        return (
+                                            <tr key={player.id}>
+                                                <td>{player.name}</td>
+                                                <td>{stats.shots[2].makes}/{stats.shots[2].attempts}</td>
+                                                <td>{stats.shots[3].makes}/{stats.shots[3].attempts}</td>
+                                                <td>{stats.shots.ft.makes}/{stats.shots.ft.attempts}</td>
+                                                <td>{stats.fouls}</td>
+                                                <td>
+                                                    <button className="btn-primary" onClick={() => handleStatUpdate(player.id, '2p_attempt')}>+2P Attempt</button>
+                                                    <button className="btn-primary" onClick={() => handleStatUpdate(player.id, '2p_make')}>+2P Make</button>
+                                                    <button className="btn-primary" onClick={() => handleStatUpdate(player.id, '3p_attempt')}>+3P Attempt</button>
+                                                    <button className="btn-primary" onClick={() => handleStatUpdate(player.id, '3p_make')}>+3P Make</button>
+                                                    <button className="btn-primary" onClick={() => handleStatUpdate(player.id, 'ft_attempt')}>+FT Attempt</button>
+                                                    <button className="btn-primary" onClick={() => handleStatUpdate(player.id, 'ft_make')}>+FT Make</button>
+                                                    <button className="btn-danger" onClick={() => handleStatUpdate(player.id, 'foul')}>+Foul</button
